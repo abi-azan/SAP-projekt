@@ -1,0 +1,40 @@
+---
+title: "Oscar Projekt"
+author: "SAPunanje mačora"
+date: "2025-11-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r data setup}
+library(readr)
+oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r summary, echo=FALSE}
+summary(oscars_dataset)
+```
+```{r pressure, echo=FALSE}
+#wins_by_genre <- table(oscars_dataset$'Main Genre'[oscars_dataset$Award == "Winner"])
+#wins_by_genre
+library(dplyr)
+
+wins_by_genre <- oscars_dataset %>%
+  filter(Award == "Winner") %>%
+  count(`Main Genre`, name = "Wins")
+genre_count <- oscars_dataset %>%
+  count(`Main Genre`, name = "count")
+barplot(wins_by_genre$Wins, xlab = "Genre", ylab = "Wins", main ="Wins by Genre",names.arg = wins_by_genre$`Main Genre`,col = "light blue")
+barplot(genre_count$count, xlab = "Genre", ylab = "count", main ="Genre Count",names.arg = genre_count$`Main Genre`,width = 20)
+
+```
