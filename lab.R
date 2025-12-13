@@ -1,0 +1,1 @@
+print(prvo_pitanje2)
