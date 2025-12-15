@@ -11,7 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-
 ```{r data setup}
 library(readr)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
@@ -24,6 +23,7 @@ You can also embed plots, for example:
 ```{r summary, echo=FALSE}
 summary(oscars_dataset)
 ```
+
 ```{r pressure, echo=FALSE}
 #wins_by_genre <- table(oscars_dataset$'Main Genre'[oscars_dataset$Award == "Winner"])
 #wins_by_genre
