@@ -12,7 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 ```{r data setup}
+library(dplyr)
 library(readr)
+library(stringr)
+library(hflights)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 ```
 
@@ -115,7 +122,105 @@ cetvrto_pitanje <- chisq.test(winners_producer$n)
 print(cetvrto_pitanje)
 ```
 
+# Kako su filmovi ocijenjeni s obzirom na njihovu starost?
 
+```{r}
+mean.imdb.rating <- mean(oscars_dataset2$imdb_rating)
+mean.tomato.rating <- oscars_dataset2$tomato_rating %>% na.omit() %>% mean()
+mean.audience.rating <- oscars_dataset2$audience_rating %>%  na.omit() %>% mean()
+mean.year <- mean(oscars_dataset2$y_release)
+imdb_ocjena_starost <- select(oscars_dataset2,y_release,imdb_rating)
+```
+
+```{r}
+fit.imdb = lm(imdb_rating~y_release,data=imdb_ocjena_starost)
+plot(imdb_ocjena_starost$y_release,imdb_ocjena_starost$imdb_rating,main = "IMDb Rating -Release Year",
+     xlab = "Year of Release",
+     ylab = "IMDB Rating",
+     pch = 19, 
+     col = "blue")
+#lines(imdb_ocjena_starost$y_release,fit.imdb$fitted.values,col='red')
+abline(fit.imdb, col = "red", lwd = 2)
+#raspodjela rezidiuala
+hist(fit.imdb$residuals) 
+#studentova standardizacija reziduala
+hist(rstandard(fit.imdb))
+#iscitavanje podataka uključujući prilagođeni R^2
+summary(fit.imdb)
+#korelacije
+cor(oscars_dataset2$y_release,oscars_dataset2$imdb_rating)
+
+fit.tomato = lm(tomato_rating~y_release,data=oscars_dataset2)
+plot(oscars_dataset2$y_release,oscars_dataset2$tomato_rating,main = "Tomato Rating -Release Year",
+     xlab = "Year of Release",
+     ylab = "Tomatometer Rating",
+     pch = 19, 
+     col = "tomato")
+abline(fit.tomato, col = "green", lwd = 2)
+hist(fit.tomato$residuals) 
+hist(rstandard(fit.tomato))
+summary(fit.tomato)
+
+fit.audience = lm(audience_rating~y_release,data=oscars_dataset2)
+plot(oscars_dataset2$y_release,oscars_dataset2$audience_rating,main = "Audience Rating -Release Year",
+     xlab = "Year of Release",
+     ylab = "Audience Rating",
+     pch = 19, 
+     col = "black")
+abline(fit.audience, col = "red", lwd = 2)     
+hist(fit.audience$residuals) 
+hist(rstandard(fit.audience))
+summary(fit.audience)
+```
+
+Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
+Za imdb je R^2 
+
+
+```{r}
+
+
+
+ggplot(imdb_ocjena_starost, aes(x = y_release, y = imdb_rating)) +
+  geom_point(alpha = 0.5) +  # alpha makes points semi-transparent to see density
+  geom_smooth(method = "lm", color = "blue", se = TRUE) + # "lm" = linear model
+  labs(title = "Relationship Between Movie Age and IMDb Rating",
+       x = "Release Year",
+       y = "IMDb Rating") +
+  theme_minimal()
+ggplot(oscars_dataset2, aes(x = y_release, y = tomato_rating)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "tomato", se = TRUE) + 
+  labs(title = "Relationship Between Movie Age and Tomatometer Rating",
+       x = "Release Year",
+       y = "Tomato Rating") +
+  theme_minimal()
+ggplot(oscars_dataset2, aes(x = y_release, y = audience_rating)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "green", se = TRUE) + 
+  labs(title = "Relationship Between Movie Age and Audience Rating",
+       x = "Release Year",
+       y = "Audience Rating") +
+  theme_minimal()
+```
+
+Moguče je na prvi pogled zaključiti kako godina izdanja ne utječe mnogo na ocjenu filma. Mali pozitivan nagib je upečaćen no ne smatramo ga toliko signifikantnim. Najveći nagib je u IMDB grafu.
+
+```{r}
+# test normalnosti reziuala p < 0.05
+shapiro.test(fit.imdb$residuals) 
+shapiro.test(fit.tomato$residuals) 
+shapiro.test(fit.audience$residuals)
+# p vrijednost je manje od o.o5 za sve a možemo zaključiti normalnost
+
+cor.test(oscars_dataset2$y_release, oscars_dataset2$imdb_rating,method = "pearson")
+cor.test(oscars_dataset2$y_release, oscars_dataset2$tomato_rating,method = "pearson")
+cor.test(oscars_dataset2$y_release, oscars_dataset2$audience_rating,method = "pearson")
+```
+
+Nemožemo odbaciti hipotezu da su reziduali normalno distribuirani.
+Pearson korelacijskim testom možemo vidjeti da su generalno slabo korelirani stime da imdb ima najveću korelaciju sa 0.33 što se može smatrati umjerenom korelacijom.
+Kako su sve tri umjerene no pozitivne postoji mogučnost da noviji filmovi imaju bolje ocijene.
 
 
 
