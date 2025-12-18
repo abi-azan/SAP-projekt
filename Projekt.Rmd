@@ -11,7 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-
 ```{r data setup}
 library(readr)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
@@ -24,17 +23,99 @@ You can also embed plots, for example:
 ```{r summary, echo=FALSE}
 summary(oscars_dataset)
 ```
+
 ```{r pressure, echo=FALSE}
-#wins_by_genre <- table(oscars_dataset$'Main Genre'[oscars_dataset$Award == "Winner"])
-#wins_by_genre
+#Jesu li medu pobjednicima neki žanrovi češči? 
+
 library(dplyr)
 
 wins_by_genre <- oscars_dataset %>%
   filter(Award == "Winner") %>%
-  count(`Main Genre`, name = "Wins")
+  count(`Main.Genre`, name = "Wins")
+
 genre_count <- oscars_dataset %>%
-  count(`Main Genre`, name = "count")
-barplot(wins_by_genre$Wins, xlab = "Genre", ylab = "Wins", main ="Wins by Genre",names.arg = wins_by_genre$`Main Genre`,col = "light blue")
+  count(`Main.Genre`, name = "count")
+
+barplot(wins_by_genre$Wins, xlab = "Genre", ylab = "Wins", main ="Wins by Genre",names.arg = wins_by_genre$`Main.Genre`,col = "light blue")
 barplot(genre_count$count, xlab = "Genre", ylab = "count", main ="Genre Count",names.arg = genre_count$`Main Genre`,width = 20)
 
+prvo_pitanje <- chisq.test(wins_by_genre$Wins)
+print(prvo_pitanje)
 ```
+
+
+```{r genre_duration, echo=FALSE}
+#Jesu li neki žanrovi u prosjeku dulji od ostalih?
+library(dplyr)
+
+duration_by_genre <- oscars_dataset %>%
+  group_by(`Main.Genre`) %>%
+  summarise(
+    Avg_Duration = mean(`Movie.Time`, na.rm = TRUE),
+    Movie_Count = n()
+  ) %>%
+  arrange(desc(Avg_Duration))
+
+print(duration_by_genre)
+
+par(mar=c(10, 5, 4, 2))
+boxplot(oscars_dataset$`Movie.Time` ~ oscars_dataset$`Main.Genre`,
+        main = "Trajanje filmova po žanrovima",
+        ylab = "Trajanje (min)",
+        col = "light blue",
+        las = 2,
+        cex.axis = 0.8)
+
+```
+
+
+
+
+
+```{r imdb_winners_vs_others, echo=FALSE}
+#Imaju li pobjednici veći IMDB rating od onih koji nisu pobijedili?
+library(dplyr)
+
+
+imdb_stats <- oscars_dataset %>%
+  group_by(Award) %>%
+  summarise(
+    Prosjek_IMDb = mean(`IMDB.Rating`, na.rm = TRUE),
+    Medijan_IMDb = median(`IMDB.Rating`, na.rm = TRUE),
+    Broj_filmova = n()
+  )
+
+print(imdb_stats)
+
+boxplot(oscars_dataset$`IMDB.Rating` ~ oscars_dataset$Award,
+        main = "Usporedba IMDb ocjena: Pobjednici vs. Ostali",
+        ylab = "IMDb Ocjena",
+        xlab = "Status nagrade",
+        col = c("lightgray", "gold"),
+        names = c("Nominee", "Winner")) 
+
+test_rezultat <- t.test(`IMDB.Rating` ~ Award, data = oscars_dataset)
+print(test_rezultat)
+```
+
+```{r}
+#Jesu li među pobjednicima neki producenti češči?
+library(dplyr)
+library(tidyr)
+
+
+winners_producer <- oscars_dataset %>%
+  filter(Award=="Winner") %>%
+  separate_rows(`Film.Studio.Producer.s.`,sep= ",") %>%
+  count(`Film.Studio.Producer.s.`, sort=TRUE)
+
+barplot(winners_producer$n, xlab = "Producer", ylab = "n", main ="Wins by producer",names.arg = winners_producer$`Film.Studio.Producer.s.`,col = "light blue")
+
+cetvrto_pitanje <- chisq.test(winners_producer$n)
+print(cetvrto_pitanje)
+```
+
+
+
+
+
