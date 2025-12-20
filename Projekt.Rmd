@@ -111,7 +111,7 @@ winners_producer <- oscars_dataset %>%
 
 barplot(winners_producer$n, xlab = "Producer", ylab = "n", main ="Wins by producer",names.arg = winners_producer$`Film.Studio.Producer.s.`,col = "light blue")
 
-cetvrto_pitanje <- chisq.test(winners_producer$n)
+cetvrto_pitanje <- chisq.test(as.numeric(winners_producer$n))
 print(cetvrto_pitanje)
 ```
 
