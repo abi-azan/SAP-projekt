@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Oscar Projekt
 
 ```{r data setup}
 library(dplyr)
@@ -20,7 +20,12 @@ library(tidyr)
 library(lubridate)
 library(ggplot2)
 library(tidyverse)
+library(ggpubr)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+```{r oscars_dataset2, echo=FALSE}
+oscars_dataset2 <- oscars_dataset
+colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","lenght","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
 ```
 
 ## Including Plots
@@ -30,18 +35,15 @@ You can also embed plots, for example:
 ```{r summary, echo=FALSE}
 summary(oscars_dataset)
 ```
-
+#Jesu li medu pobjednicima neki žanrovi češči?
 ```{r pressure, echo=FALSE}
-#Jesu li medu pobjednicima neki žanrovi češči? 
-
-library(dplyr)
 
 wins_by_genre <- oscars_dataset %>%
   filter(Award == "Winner") %>%
-  count(`Main.Genre`, name = "Wins")
+  count(`Main Genre`, name = "Wins")
 
 genre_count <- oscars_dataset %>%
-  count(`Main.Genre`, name = "count")
+  count(`Main Genre`, name = "count")
 
 barplot(wins_by_genre$Wins, xlab = "Genre", ylab = "Wins", main ="Wins by Genre",names.arg = wins_by_genre$`Main.Genre`,col = "light blue")
 barplot(genre_count$count, xlab = "Genre", ylab = "count", main ="Genre Count",names.arg = genre_count$`Main Genre`,width = 20)
@@ -53,12 +55,12 @@ print(prvo_pitanje)
 
 ```{r genre_duration, echo=FALSE}
 #Jesu li neki žanrovi u prosjeku dulji od ostalih?
-library(dplyr)
+
 
 duration_by_genre <- oscars_dataset %>%
-  group_by(`Main.Genre`) %>%
+  group_by(`Main Genre`) %>%
   summarise(
-    Avg_Duration = mean(`Movie.Time`, na.rm = TRUE),
+    Avg_Duration = mean(`Movie Time`, na.rm = TRUE),
     Movie_Count = n()
   ) %>%
   arrange(desc(Avg_Duration))
@@ -66,7 +68,7 @@ duration_by_genre <- oscars_dataset %>%
 print(duration_by_genre)
 
 par(mar=c(10, 5, 4, 2))
-boxplot(oscars_dataset$`Movie.Time` ~ oscars_dataset$`Main.Genre`,
+boxplot(oscars_dataset$`Movie Time` ~ oscars_dataset$`Main Genre`,
         main = "Trajanje filmova po žanrovima",
         ylab = "Trajanje (min)",
         col = "light blue",
@@ -76,45 +78,40 @@ boxplot(oscars_dataset$`Movie.Time` ~ oscars_dataset$`Main.Genre`,
 ```
 
 
-
-
+#Imaju li pobjednici veći IMDB rating od onih koji nisu pobijedili?
 
 ```{r imdb_winners_vs_others, echo=FALSE}
-#Imaju li pobjednici veći IMDB rating od onih koji nisu pobijedili?
-library(dplyr)
+
+
 
 
 imdb_stats <- oscars_dataset %>%
   group_by(Award) %>%
   summarise(
-    Prosjek_IMDb = mean(`IMDB.Rating`, na.rm = TRUE),
-    Medijan_IMDb = median(`IMDB.Rating`, na.rm = TRUE),
+    Prosjek_IMDb = mean(`IMDB Rating`, na.rm = TRUE),
+    Medijan_IMDb = median(`IMDB Rating`, na.rm = TRUE),
     Broj_filmova = n()
   )
 
 print(imdb_stats)
 
-boxplot(oscars_dataset$`IMDB.Rating` ~ oscars_dataset$Award,
+boxplot(oscars_dataset$`IMDB Rating` ~ oscars_dataset$Award,
         main = "Usporedba IMDb ocjena: Pobjednici vs. Ostali",
         ylab = "IMDb Ocjena",
         xlab = "Status nagrade",
         col = c("lightgray", "gold"),
         names = c("Nominee", "Winner")) 
 
-test_rezultat <- t.test(`IMDB.Rating` ~ Award, data = oscars_dataset)
+test_rezultat <- t.test(`IMDB Rating` ~ Award, data = oscars_dataset)
 print(test_rezultat)
 ```
 
-```{r}
 #Jesu li među pobjednicima neki producenti češči?
-library(dplyr)
-library(tidyr)
-
-
+```{r}
 winners_producer <- oscars_dataset %>%
   filter(Award=="Winner") %>%
-  separate_rows(`Film.Studio.Producer.s.`,sep= ",") %>%
-  count(`Film.Studio.Producer.s.`, sort=TRUE)
+  separate_rows(`Film Studio/Producer(s)`,sep= ",") %>%
+  count(`Film Studio/Producer(s)`, sort=TRUE)
 
 barplot(winners_producer$n, xlab = "Producer", ylab = "n", main ="Wins by producer",names.arg = winners_producer$`Film.Studio.Producer.s.`,col = "light blue")
 
@@ -171,6 +168,8 @@ abline(fit.audience, col = "red", lwd = 2)
 hist(fit.audience$residuals) 
 hist(rstandard(fit.audience))
 summary(fit.audience)
+
+
 ```
 
 Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
@@ -223,4 +222,59 @@ Pearson korelacijskim testom možemo vidjeti da su generalno slabo korelirani st
 Kako su sve tri umjerene no pozitivne postoji mogučnost da noviji filmovi imaju bolje ocijene.
 
 
+# Možemo li naslutiti kako je film ocijenjen pomoću drugih značajki?
+
+Možemo iskoristiti nekoliko metoda kako bi vidjeli možemo li koristiti druge merike da bi mogli naslutiti ocjenu filma.
+
+Prvo krećemo sa numeričkom analizom.
+```{r}
+
+# Biramo samo numeričke stupce za nalizu
+numerical_data <- oscars_dataset2[, c("lenght", "imdb_rating", "imdb_votes", 
+                                       "tomato_rating", "tomato_count", "audience_rating", "audience_count")]
+
+# Kalkuliramo matrix korelacije koji nam je pogod
+cor_matrix <- cor(numerical_data, use = "complete.obs")
+print(cor_matrix)
+```
+Ne primjećujemo znatne korelacije koje bi nam mogle korisiti u predikciji
+
+Moramo analizirati kvalitativne stupce.
+
+```{r}
+genre_analysis <- oscars_dataset2 %>%
+  group_by(main_genre) %>%
+  summarise(
+    avg_rating = mean(imdb_rating, na.rm = TRUE),
+    movie_count = n()
+  ) %>%
+  arrange(desc(avg_rating))
+
+
+print(genre_analysis)
+
+```
+
+Možemo se i zapitati imaju li Oscar pobjednici bolje ocjene.
+```{r}
+ggplot(oscars_dataset2, aes(x = award, y = imdb_rating, fill = award)) +
+  geom_violin(alpha = 0.5) +
+  geom_boxplot(width = 0.2) +
+  labs(title = "Raspodjela ocjena oscan niminacija i pobjednika?")
+# Pomoću t testa možemo testirati jesu li prosjeci ova dva skupa stvarno statistički različita
+# Znamo da su dva skupa nezavisna ner ne dijele istu značajku
+#Koristi ćemo t test pa prvo se moramo uvjeriti  normalnost podataka"
+winners <- oscars_dataset2 %>% filter(award == "Winner") %>% select(imdb_rating) %>% pull(imdb_rating)
+shapiro.test(winners) 
+nominees <- oscars_dataset2 %>% filter(award == "Nominee") %>% select(imdb_rating) %>% pull(imdb_rating)
+shapiro.test(nominees)
+# pošto je p < 0.01 za oba testa možemo zaključiti da nisu normalno distribuirani
+#Moramo  koristi ne parametarsku metodu
+wilcox.test(winners, nominees, alternative = "greater")
+# p < 0.0001 možemo gotovo sigurno odbaciti hipotezu u korist toga da oscar pobjednici imaju bolji rating
+```
+Biti pobjednik oscara jedan je od prediktora višeg ratinga
+
+
+#Možemo li pomoću dostupnih značajki pouzdano razlikovati pobjednike od ostalih?
 
