@@ -21,11 +21,12 @@ library(lubridate)
 library(ggplot2)
 library(tidyverse)
 library(ggpubr)
+library(car)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 ```
 ```{r oscars_dataset2, echo=FALSE}
 oscars_dataset2 <- oscars_dataset
-colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","lenght","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
+colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","length","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
 ```
 
 ## Including Plots
@@ -35,28 +36,199 @@ You can also embed plots, for example:
 ```{r summary, echo=FALSE}
 summary(oscars_dataset)
 ```
-#Jesu li medu pobjednicima neki žanrovi češči?
-```{r pressure, echo=FALSE}
-
-wins_by_genre <- oscars_dataset %>%
-  filter(Award == "Winner") %>%
-  count(`Main Genre`, name = "Wins")
-
-genre_count <- oscars_dataset %>%
-  count(`Main Genre`, name = "count")
-
-barplot(wins_by_genre$Wins, xlab = "Genre", ylab = "Wins", main ="Wins by Genre",names.arg = wins_by_genre$`Main.Genre`,col = "light blue")
-barplot(genre_count$count, xlab = "Genre", ylab = "count", main ="Genre Count",names.arg = genre_count$`Main Genre`,width = 20)
-
-prvo_pitanje <- chisq.test(wins_by_genre$Wins)
-print(prvo_pitanje)
+```{r summary, echo=FALSE}
+summary(oscars_dataset2)
 ```
 
+#Jesu li medu pobjednicima neki žanrovi češči?
+Hipoteze:
+
+H0 - Svi žanrovi imaju jednaku vjerojatnost pobjede
+H1 - Postoji razlika u učestalosti pobjeda među žanrovima
+
+alpha = 0.05
+
+```{r pressure, echo=FALSE}
+
+#Prikaz nehomogenosti
+winners <- subset(oscars_dataset2, award =="Winner")
+
+tablica_pobjednika <- table(winners$main_genre)
+
+barplot(tablica_pobjednika, 
+        las = 2, 
+        col = "red", 
+        main = "Broj pobjednika po žanru",
+        ylab = "Broj pobjeda")
+
+
+
+#Prikaz kontingencijske tablice
+tablica_zanr_award <- table(oscars_dataset2$main_genre, oscars_dataset2$award)
+
+print("Kontigencijska tablica (frekvencije):")
+print(tablica_zanr_award)
+
+
+
+#Prikaz kontingencijske tablice za subžanrove
+tablica_zanr_award2 <- table(oscars_dataset2$sub_genre, oscars_dataset2$award)
+
+print("Kontigencijska tablica za subžanrove (frekvencije):")
+print(tablica_zanr_award2)
+
+
+
+
+#Prikaz rezultata chi-squared testa
+test_rezultat <- chisq.test(tablica_zanr_award)
+
+print("Očekivane frekvencije:")
+print(test_rezultat$expected)
+
+
+
+
+#Prikaz rezultata chi-squared testa za subžanrove
+test_rezultat2 <- chisq.test(tablica_zanr_award2)
+
+print("Očekivane frekvencije za subžanrove:")
+print(test_rezultat2$expected)
+
+
+
+
+
+print("Rezultat testa za genre: ")
+print(test_rezultat)
+
+print("Rezultat testa za subgenre: ")
+print(test_rezultat2)
+
+
+prop_tablica <- prop.table(tablica_zanr_award, margin = 1)
+
+barplot(t(prop_tablica), 
+        beside = TRUE, 
+        legend = TRUE, 
+        col = c("red", "yellow"),
+        main = "Udio pobjeda i nominacija po žanrovima",
+        las = 2, 
+        cex.names = 0.8,
+        ylab = "Proporcija")
+
+
+prop_tablica2 <- prop.table(tablica_zanr_award2, margin = 1)
+
+barplot(t(prop_tablica2), 
+        beside = TRUE, 
+        legend = TRUE, 
+        col = c("lightgreen", "lightblue"),
+        main = "Udio pobjeda i nominacija po subžanrovima",
+        las = 2, 
+        cex.names = 0.8,
+        ylab = "Proporcija")
+
+
+#Grupiranje premalih frekvencija 
+premale_frekvencije <- any(test_rezultat$expected < 5)
+if(premale_frekvencije) {
+  print("Grupiranje rijetkih žanrova:")
+  
+  oscars_dataset3 <- oscars_dataset2 %>%
+    mutate(main_genre_grouped = fct_lump_min(main_genre, min = 5, other_level = "Other"))
+  
+  tablica_finalna <- table(oscars_dataset3$main_genre_grouped, oscars_dataset3$award)
+  
+  print("Nova kontigencijska tablica (grupirano):")
+  print(tablica_finalna)
+  
+  test_finalni <- chisq.test(tablica_finalna, simulate.p.value = TRUE)
+  
+  print("Očekivane frekvencije nakon grupiranja:")
+  print(test_finalni$expected)
+  
+  prop_tablica3 <- prop.table(tablica_finalna, margin = 1)
+
+  print(test_finalni)
+  
+  barplot(t(prop_tablica3), 
+        beside = TRUE, 
+        legend = TRUE, 
+        col = c("red", "yellow"),
+        main = "Udio pobjeda i nominacija po žanrovima",
+        las = 2, 
+        cex.names = 0.8,
+        ylab = "Proporcija")
+  
+} else {
+  print("Nije bilo potrebe za grupiranjem.")
+}
+
+# Grupiranje premalih frekvencija za subžanrove
+premale_frekvencije2 <- any(test_rezultat2$expected < 5)
+
+if(premale_frekvencije2) {
+  print("Grupiranje rijetkih subžanrova:")
+  
+  # IZRAČUN PRAGA:
+  # Da bi očekivana vrijednost pobjednika bila 5, moramo izračunati koliko 
+  # ukupno filmova subžanr mora imati. 
+  # Formula: prag = 5 / (ukupni_pobjednici / ukupni_filmovi)
+  
+  ukupno_filmova <- nrow(oscars_dataset2)
+  ukupno_pobjednika <- sum(oscars_dataset2$award == "Winner", na.rm = TRUE)
+  stopa_pobjede <- ukupno_pobjednika / ukupno_filmova
+  
+  # Ovaj 'prag' nam govori koliko filmova mora imati subžanr da bi Winners očekivano bio 5
+  prag <- ceiling(5 / stopa_pobjede) 
+  
+  print(paste("Subžanrovi s manje od", prag, "ukupnih filmova idu u 'Other'."))
+  
+  # Primjena novog praga
+  oscars_dataset4 <- oscars_dataset2 %>%
+    mutate(sub_genre_grouped2 = fct_lump_min(sub_genre, min = prag, other_level = "Other"))
+  
+  tablica_finalna2 <- table(oscars_dataset4$sub_genre_grouped2, oscars_dataset4$award)
+  
+  print("Nova kontigencijska tablica (grupirano s pragom):")
+  print(tablica_finalna2)
+  
+  # Sada radimo Hi-kvadrat test (vjerojatno više neće trebati simulate.p.value jer su brojevi veći)
+  test_finalni2 <- chisq.test(tablica_finalna2)
+  
+  print("Očekivane frekvencije nakon grupiranja (Sve bi trebale biti >= 5):")
+  print(test_finalni2$expected)
+  
+  prop_tablica4 <- prop.table(tablica_finalna2, margin = 1)
+  print(test_finalni2)
+  
+  barplot(t(prop_tablica4), 
+        beside = TRUE, 
+        legend = TRUE, 
+        col = c("lightgreen", "lightblue"),
+        main = "Udio pobjeda po subžanrovima (Korigirano)",
+        las = 2, 
+        cex.names = 0.8,
+        ylab = "Proporcija")
+  
+} else {
+  print("Nije bilo potrebe za grupiranjem.")
+}
+
+
+
+```
+Na temelju originalnog testa H0 odbacujemo, što znači da prihvačamo H1, dok za test s grupiranim podacima Zadržavamo H0.
+
+#Jesu li neki žanrovi u prosjeku dulji od ostalih?
+Hipoteze:
+
+H0 - Duljina filma ne ovisi o žanru filma
+H1 - Duljina filma ovisi o žanru filma
 
 ```{r genre_duration, echo=FALSE}
-#Jesu li neki žanrovi u prosjeku dulji od ostalih?
-
-
+print("Tablica duljine trajanja filmova u žanrovima:")
 duration_by_genre <- oscars_dataset %>%
   group_by(`Main Genre`) %>%
   summarise(
@@ -67,57 +239,109 @@ duration_by_genre <- oscars_dataset %>%
 
 print(duration_by_genre)
 
-par(mar=c(10, 5, 4, 2))
-boxplot(oscars_dataset$`Movie Time` ~ oscars_dataset$`Main Genre`,
-        main = "Trajanje filmova po žanrovima",
-        ylab = "Trajanje (min)",
-        col = "light blue",
-        las = 2,
-        cex.axis = 0.8)
 
-```
-
-
-#Imaju li pobjednici veći IMDB rating od onih koji nisu pobijedili?
-
-```{r imdb_winners_vs_others, echo=FALSE}
+#par(mar=c(10, 5, 4, 2))
+#boxplot(oscars_dataset$`Movie Time` ~ oscars_dataset$`Main Genre`,
+#        main = "Trajanje filmova po žanrovima",
+#        ylab = "Trajanje (min)", xlab = "Žanr",
+#        col = "lightblue",
+#        las = 2,
+#        cex.axis = 0.8)
+#means <- tapply(oscars_dataset2$length, oscars_dataset2$main_genre, mean, na.rm=TRUE)
+#points(means, col="red", pch=16, cex=1)
 
 
 
+# Micanje NA (Not Available) vrijednosti i žanrova koji imaju manje od 2 filma zbog ANOVA testa
 
-imdb_stats <- oscars_dataset %>%
-  group_by(Award) %>%
+print("Tablica duljine trajanja filmova u žanrovima nakon filtriranja:")
+
+data_clean <- oscars_dataset2 %>%
+  filter(!is.na(length), !is.na(main_genre)) %>%
+  group_by(main_genre) %>%
+  filter(n() > 1) %>% 
+  ungroup()
+
+#Micanje Warninga
+data_clean$main_genre <- as.factor(data_clean$main_genre)
+
+duration_by_genre2 <- data_clean %>%
+  group_by(`main_genre`) %>%
   summarise(
-    Prosjek_IMDb = mean(`IMDB Rating`, na.rm = TRUE),
-    Medijan_IMDb = median(`IMDB Rating`, na.rm = TRUE),
-    Broj_filmova = n()
-  )
+    Avg_Duration = mean(`length`, na.rm = TRUE),
+    Movie_Count = n()
+  ) %>%
+  arrange(desc(Avg_Duration))
 
-print(imdb_stats)
+print(duration_by_genre2)
 
-boxplot(oscars_dataset$`IMDB Rating` ~ oscars_dataset$Award,
-        main = "Usporedba IMDb ocjena: Pobjednici vs. Ostali",
-        ylab = "IMDb Ocjena",
-        xlab = "Status nagrade",
-        col = c("lightgray", "gold"),
-        names = c("Nominee", "Winner")) 
 
-test_rezultat <- t.test(`IMDB Rating` ~ Award, data = oscars_dataset)
-print(test_rezultat)
+boxplot(data_clean$length ~ data_clean$main_genre,
+        main = "Trajanje filmova po žanrovima",
+        ylab = "Trajanje (min)", 
+        xlab = "Žanr",
+        col = "lightblue", 
+        las = 2, 
+        cex.axis = 0.7)
+# Dodajemo crvenu točku za prosjek (mean) radi lakše usporedbe s ANOVOM
+means2 <- tapply(data_clean$length, data_clean$main_genre, mean, na.rm=TRUE)
+points(means2, col="red", pch=16, cex=1)
+
+
 ```
 
-#Jesu li među pobjednicima neki producenti češči?
-```{r}
-winners_producer <- oscars_dataset %>%
-  filter(Award=="Winner") %>%
-  separate_rows(`Film Studio/Producer(s)`,sep= ",") %>%
-  count(`Film Studio/Producer(s)`, sort=TRUE)
+Već u ovom prikazu možemo vidjeti razliku u trajanju filmova po žanrovima.
 
-barplot(winners_producer$n, xlab = "Producer", ylab = "n", main ="Wins by producer",names.arg = winners_producer$`Film.Studio.Producer.s.`,col = "light blue")
 
-cetvrto_pitanje <- chisq.test(winners_producer$n)
-print(cetvrto_pitanje)
+```{R}
+#Normalnost
+print("Shapiro-Wilk test normalnosti:")
+
+model <- aov(length ~ main_genre, data = data_clean)
+shapiro_res <- shapiro.test(residuals(model))
+print(shapiro_res)
+
+# Q-Q Plot za normalnost
+plot(model, which = 2, main = "Q-Q Plot reziduala")
+
 ```
+
+Vizualni pregled Q-Q plota potvrđuje rezultate Shapiro-Wilk testa. Iako se većina podataka grupira oko teoretskog pravca normalnosti, postoje značajna odstupanja na krajevima distribucije. Ova odstupanja uzrokovana su ekstremnim vrijednostima (vrlo dugi filmovi), što je karakteristično za produkcije nominirane za nagradu Oscar. Zbog velikog uzorka, ova odstupanja ne ugrožavaju valjanost zaključka o razlikama među žanrovima
+
+```{R}
+#Homogenost
+print("Test homogenosti varijanca (Leveneov test):")
+levene_res <- leveneTest(length ~ main_genre, data = data_clean)
+print(levene_res)
+
+#ANOVA
+print("ANOVA test:")
+
+model <- aov(length ~ main_genre, data = data_clean)
+levene_res <- leveneTest(length ~ main_genre, data = data_clean)
+
+if(levene_res$`Pr(>F)`[1] > 0.05) {
+  print("Standardni ANOVA test:") # Varijance su homogene -> Standardnu ANOVU
+  print(summary(model))
+} else {
+  print("Welchov ANOVA test:") # Varijance nisu homogene (p < 0.05) -> Welchov ANOVA test
+  welch_test <- oneway.test(length ~ main_genre, data = data_clean, var.equal = FALSE)
+  print(welch_test)
+}
+
+if(summary(model)[[1]][["Pr(>F)"]][1] < 0.05) {
+  print("Post-hoc test (Tukey HSD):") # Usporedba parova žanrova
+  tukey <- TukeyHSD(model)
+  print(head(tukey$main_genre, 30))  # Prikaz prvih 30
+}
+```
+P vrijednost u Leveneovom testu je 0.001613 < 0.05 što znači da varijance nisu homogene što znači da trebamo korisititi Welchov ANOVA test.
+
+U Welcheovom ANOVA testu p-value = 9.722e-05 što je znatno manje od 0.05 što znači da odbacujemo H0 i zadržavamo H1
+
+Promatrajući p adj stupac u Post-hoc Tuckey HSD testu vidimo na primjer da je komedija znatno kraća od ostalih žanrova (p adj < 0.05)
+
+
 
 # Kako su filmovi ocijenjeni s obzirom na njihovu starost?
 
@@ -230,7 +454,7 @@ Prvo krećemo sa numeričkom analizom.
 ```{r}
 
 # Biramo samo numeričke stupce za nalizu
-numerical_data <- oscars_dataset2[, c("lenght", "imdb_rating", "imdb_votes", 
+numerical_data <- oscars_dataset2[, c("length", "imdb_rating", "imdb_votes", 
                                        "tomato_rating", "tomato_count", "audience_rating", "audience_count")]
 
 # Kalkuliramo matrix korelacije koji nam je pogod
