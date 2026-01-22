@@ -21,6 +21,8 @@ library(lubridate)
 library(ggplot2)
 library(tidyverse)
 library(ggpubr)
+library(boot)
+library(gridExtra)
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 ```
 ```{r oscars_dataset2, echo=FALSE}
@@ -75,35 +77,6 @@ boxplot(oscars_dataset$`Movie Time` ~ oscars_dataset$`Main Genre`,
         las = 2,
         cex.axis = 0.8)
 
-```
-
-
-#Imaju li pobjednici veći IMDB rating od onih koji nisu pobijedili?
-
-```{r imdb_winners_vs_others, echo=FALSE}
-
-
-
-
-imdb_stats <- oscars_dataset %>%
-  group_by(Award) %>%
-  summarise(
-    Prosjek_IMDb = mean(`IMDB Rating`, na.rm = TRUE),
-    Medijan_IMDb = median(`IMDB Rating`, na.rm = TRUE),
-    Broj_filmova = n()
-  )
-
-print(imdb_stats)
-
-boxplot(oscars_dataset$`IMDB Rating` ~ oscars_dataset$Award,
-        main = "Usporedba IMDb ocjena: Pobjednici vs. Ostali",
-        ylab = "IMDb Ocjena",
-        xlab = "Status nagrade",
-        col = c("lightgray", "gold"),
-        names = c("Nominee", "Winner")) 
-
-test_rezultat <- t.test(`IMDB Rating` ~ Award, data = oscars_dataset)
-print(test_rezultat)
 ```
 
 #Jesu li među pobjednicima neki producenti češči?
@@ -257,6 +230,16 @@ print(genre_analysis)
 
 Možemo se i zapitati imaju li Oscar pobjednici bolje ocjene.
 ```{r}
+imdb_stats <- oscars_dataset %>%
+  group_by(Award) %>%
+  summarise(
+    Prosjek_IMDb = mean(`IMDB Rating`, na.rm = TRUE),
+    Medijan_IMDb = median(`IMDB Rating`, na.rm = TRUE),
+    Broj_filmova = n()
+  )
+
+print(imdb_stats)
+#Vidimo da ima vidljive razlike u prosjeku i u medijanu
 ggplot(oscars_dataset2, aes(x = award, y = imdb_rating, fill = award)) +
   geom_violin(alpha = 0.5) +
   geom_boxplot(width = 0.2) +
@@ -275,6 +258,67 @@ wilcox.test(winners, nominees, alternative = "greater")
 ```
 Biti pobjednik oscara jedan je od prediktora višeg ratinga
 
+Možemo pretposatvi da neki producenti proizvode bolje filmove
+```{r producers studios rating}
+#Kako bi mogli vidjeti koji studiji proizvode visoko ocjenjene filmove moramo znati interval pouzdanosti za naš porsječan imdb rating
+#Koristimo boostrap metodu jer imdb rating nisu normalno distribuirani i robusno je 
+
+# Funkcija koja računa prosjek (potrebna za bootstrap)
+boot_mean <- function(data, indices) {
+  return(mean(data[indices], na.rm = TRUE))
+}
+
+# Pokretanje bootstrapa (1000 simulacija)
+set.seed(553343) # Za ponovljivost
+boot_results <- boot(data = oscars_dataset2$imdb_rating, statistic = boot_mean, R = 1000)
+
+# Dobivanje 95% intervala pouzdanosti
+ci <- boot.ci(boot_results,conf = 0.99, type = "perc") 
+#perc type Directly uses quantiles from the bootstrap distribution as interval endpoints (e.g., the 2.5th and 97.5th percentiles for a 95% CI).
+#types valjda treba ili perc ili basic
+
+gornja_granica <- ci$percent[5]
+
+#Sve prodkcijske kompanije koje su iznad gornje granice možemo poprilično sigurno reći da proizvode visoko ocijenjene filmove pa su dobar šrediktor uspijeha
+uspjesni_producenti <- oscars_dataset2 %>%
+  group_by(producer) %>%
+  summarise(
+    prosjek_producenta = mean(imdb_rating, na.rm = TRUE),
+    broj_filmova = n()
+  ) %>%
+  filter(broj_filmova >= 3) %>% 
+  filter(prosjek_producenta > gornja_granica) %>%
+  arrange(desc(prosjek_producenta))
+
+print(uspjesni_producenti)
+```
+Zaključujemo da su ovih 7 producenata proizvode statistički bolje filmove po tome što imaju više filmova (znaći da imamo barem neku populaciju za proučiti) i prosjećna ocjena njihovih filmova je veća od gornje granice intervala pouzdanosti za alpha = 0.01
 
 #Možemo li pomoću dostupnih značajki pouzdano razlikovati pobjednike od ostalih?
 
+```{r numerička analiza pobjednika}
+# 1. Vizualizacija - Boxplotovi za ključne metrike
+p1 <- ggplot(oscars_dataset2, aes(x = award, y = tomato_rating, fill = award)) +
+  geom_boxplot() +
+  labs(title = "Tomato rating ") + theme_minimal()
+
+p2 <- ggplot(oscars_dataset2, aes(x = award, y = lenght, fill = award)) +
+  geom_boxplot() +
+  labs(title = "Trajanje filma") + theme_minimal()
+
+p3 <- ggplot(oscars_dataset2, aes(x = award, y = audience_rating, fill = award)) +
+  geom_boxplot() +
+  labs(title = "Audience rating") + theme_minimal()
+
+grid.arrange(p1, p3, p2, ncol = 3)
+
+# 2. Statistički testovi (Wilcoxon rank-sum test)
+# H0: Nema razlike u distribuciji između pobjednika i nominiranih
+test_imdb <- wilcox.test(imdb_rating ~ award, data = oscars_dataset2)
+test_len <- wilcox.test(lenght ~ award, data = oscars_dataset2)
+test_tomato <- wilcox.test(tomato_rating ~ award, data = oscars_dataset2)
+
+print(paste("P-vrijednost za IMDb:", test_imdb$p.value))
+print(paste("P-vrijednost za Duljinu:", test_len$p.value))
+print(paste("P-vrijednost za Tomato:", test_tomato$p.value))
+```
