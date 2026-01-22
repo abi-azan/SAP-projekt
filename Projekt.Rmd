@@ -29,7 +29,7 @@ oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = 
 ```
 ```{r oscars_dataset2, echo=FALSE}
 oscars_dataset2 <- oscars_dataset
-colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","lenght","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
+colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","length","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
 ```
 
 ## Including Plots
@@ -394,8 +394,8 @@ summary(fit.audience)
 
 ```
 
-Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
-Za imdb je R^2 
+Očitujemo male vrijednosti R^2 čime dodatno potvrđujemo tvrdnju da starost filma slabo objašnjava ocjenu.
+Za IMDb, Tomato i Audience modele R^2 ostaje nizak (prema ispisu summary), pa je objašnjena varijanca mala.
 
 
 ```{r}
@@ -432,14 +432,14 @@ Moguče je na prvi pogled zaključiti kako godina izdanja ne utječe mnogo na oc
 shapiro.test(fit.imdb$residuals) 
 shapiro.test(fit.tomato$residuals) 
 shapiro.test(fit.audience$residuals)
-# p vrijednost je manje od o.o5 za sve a možemo zaključiti normalnost
+# p vrijednosti su < 0.05 za sve pa odbacujemo normalnost reziduala
 
 cor.test(oscars_dataset2$y_release, oscars_dataset2$imdb_rating,method = "pearson")
 cor.test(oscars_dataset2$y_release, oscars_dataset2$tomato_rating,method = "pearson")
 cor.test(oscars_dataset2$y_release, oscars_dataset2$audience_rating,method = "pearson")
 ```
 
-Nemožemo odbaciti hipotezu da su reziduali normalno distribuirani.
+Odbacujemo hipotezu da su reziduali normalno distribuirani.
 Pearson korelacijskim testom možemo vidjeti da su generalno slabo korelirani stime da imdb ima najveću korelaciju sa 0.33 što se može smatrati umjerenom korelacijom.
 Kako su sve tri umjerene no pozitivne postoji mogučnost da noviji filmovi imaju bolje ocijene.
 
@@ -452,7 +452,7 @@ Prvo krećemo sa numeričkom analizom.
 ```{r}
 
 # Biramo samo numeričke stupce za nalizu
-numerical_data <- oscars_dataset2[, c("lenght", "imdb_rating", "imdb_votes", 
+numerical_data <- oscars_dataset2[, c("length", "imdb_rating", "imdb_votes", 
                                        "tomato_rating", "tomato_count", "audience_rating", "audience_count")]
 
 # Kalkuliramo matrix korelacije koji nam je pogod
@@ -551,7 +551,7 @@ p1 <- ggplot(oscars_dataset2, aes(x = award, y = tomato_rating, fill = award)) +
   geom_boxplot() +
   labs(title = "Tomato rating ") + theme_minimal()
 
-p2 <- ggplot(oscars_dataset2, aes(x = award, y = lenght, fill = award)) +
+p2 <- ggplot(oscars_dataset2, aes(x = award, y = length, fill = award)) +
   geom_boxplot() +
   labs(title = "Trajanje filma") + theme_minimal()
 
@@ -564,7 +564,7 @@ grid.arrange(p1, p3, p2, ncol = 3)
 # 2. Statistički testovi (Wilcoxon rank-sum test)
 # H0: Nema razlike u distribuciji između pobjednika i nominiranih
 test_imdb <- wilcox.test(imdb_rating ~ award, data = oscars_dataset2)
-test_len <- wilcox.test(lenght ~ award, data = oscars_dataset2)
+test_len <- wilcox.test(length ~ award, data = oscars_dataset2)
 test_tomato <- wilcox.test(tomato_rating ~ award, data = oscars_dataset2)
 
 print(paste("P-vrijednost za IMDb:", test_imdb$p.value))
