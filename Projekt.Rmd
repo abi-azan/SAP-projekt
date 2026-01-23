@@ -2,11 +2,13 @@
 title: "Oscar Projekt"
 author: "SAPunanje mačora"
 date: "2025-11-02"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ## Oscar Projekt
@@ -354,7 +356,7 @@ abline(fit.imdb, col = "red", lwd = 2)
 #raspodjela rezidiuala
 hist(fit.imdb$residuals) 
 #studentova standardizacija reziduala
-hist(rstandard(fit.imdb))
+#hist(rstandard(fit.imdb))
 #iscitavanje podataka uključujući prilagođeni R^2
 summary(fit.imdb)
 #korelacije
@@ -368,7 +370,7 @@ plot(oscars_dataset2$y_release,oscars_dataset2$tomato_rating,main = "Tomato Rati
      col = "tomato")
 abline(fit.tomato, col = "green", lwd = 2)
 hist(fit.tomato$residuals) 
-hist(rstandard(fit.tomato))
+#hist(rstandard(fit.tomato))
 summary(fit.tomato)
 
 fit.audience = lm(audience_rating~y_release,data=oscars_dataset2)
@@ -379,12 +381,12 @@ plot(oscars_dataset2$y_release,oscars_dataset2$audience_rating,main = "Audience 
      col = "black")
 abline(fit.audience, col = "red", lwd = 2)     
 hist(fit.audience$residuals) 
-hist(rstandard(fit.audience))
+#hist(rstandard(fit.audience))
 summary(fit.audience)
 
 
 ```
-
+Ovako oblikova rezidualni govore u korist 
 Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
 
 ```{r}
@@ -531,12 +533,13 @@ uspjesni_producenti <- oscars_dataset2 %>%
 
 print(uspjesni_producenti)
 ```
+
+Zaključak: Na temelju numeričke korelacijske analize i kvalitativnih usporedbi ne pronalazimo jednu dominantnu značajku koja sama pouzdano objašnjava ocjenu filma. Ipak, status pobjednika i pojedini producenti/žanrovi signaliziraju viši prosjek ocjena, što sugerira da kombinacija kategorijskih značajki daje smisleniji uvid od samih numeričkih metrike.
 Zaključujemo da su ovih 7 producenata proizvode statistički bolje filmove po tome što imaju više filmova (znaći da imamo barem neku populaciju za proučiti) i prosjećna ocjena njihovih filmova je veća od gornje granice intervala pouzdanosti za alpha = 0.01
 
 #Možemo li pomoću dostupnih značajki pouzdano razlikovati pobjednike od ostalih?
 
-```{r numerička analiza pobjednika}
-# 1. Vizualizacija - Boxplotovi za ključne metrike
+```{r vizualna analiza pobjednika}
 p1 <- ggplot(oscars_dataset2, aes(x = award, y = tomato_rating, fill = award)) +
   geom_boxplot() +
   labs(title = "Tomato rating ") + theme_minimal()
@@ -551,7 +554,45 @@ p3 <- ggplot(oscars_dataset2, aes(x = award, y = audience_rating, fill = award))
 
 grid.arrange(p1, p3, p2, ncol = 3)
 
-# 2. Statistički testovi (Wilcoxon rank-sum test)
+#Usporedba distribucija po žanru (stacked bar)
+genre_award_counts <- oscars_dataset2 %>%
+  count(main_genre, award) %>%
+  group_by(main_genre) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+ggplot(genre_award_counts, aes(x = main_genre, y = prop, fill = award)) +
+  geom_col() +
+  labs(
+    title = "Udio pobjednika i nominacija po žanru",
+    x = "Žanr",
+    y = "Proporcija",
+    fill = "Nagrada"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r numerička analiza pobjednika 1}
+# Logistička regresija
+logit_data <- oscars_dataset2 %>%
+  mutate(award_binary = ifelse(award == "Winner", 1, 0)) %>%
+  select(award_binary, imdb_rating, tomato_rating, audience_rating, length, imdb_votes, main_genre) %>%
+  drop_na()
+
+logit_model <- glm(
+  award_binary ~ imdb_rating + tomato_rating + audience_rating + length + imdb_votes + main_genre,
+  data = logit_data,
+  family = binomial
+)
+
+summary(logit_model)
+
+```
+
+```{r numerička analiza pobjednika 2}
+
+# Statistički testovi - Wilcoxon rank-sum
 # H0: Nema razlike u distribuciji između pobjednika i nominiranih
 test_imdb <- wilcox.test(imdb_rating ~ award, data = oscars_dataset2)
 test_len <- wilcox.test(length ~ award, data = oscars_dataset2)
@@ -561,3 +602,5 @@ print(paste("P-vrijednost za IMDb:", test_imdb$p.value))
 print(paste("P-vrijednost za Duljinu:", test_len$p.value))
 print(paste("P-vrijednost za Tomato:", test_tomato$p.value))
 ```
+
+Wilcoxon testovi govore postoje li razlike u raspodjelama između pobjednika i nominiranih za pojedine metrike; niske p-vrijednosti sugeriraju statistički značajne razlike u tim ocjenama ili duljini. Logistička regresija zatim procjenjuje doprinos svake varijable vjerojatnosti pobjede: pozitivni koeficijenti upućuju na veće šanse za pobjedu uz veće vrijednosti varijable, a značajnost (p-vrijednost) pokazuje koje su varijable najuvjerljiviji prediktori. Stacked bar prikaz žanrova daje kontekst za moguće razlike u sastavu nominacija i pobjeda po žanru, što pomaže povezati numeričke rezultate s kvalitativnim karakteristikama.
