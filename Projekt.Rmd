@@ -14,13 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r data setup}
 library(dplyr)
 library(readr)
-library(stringr)
-library(hflights)
-library(tidyr)
-library(lubridate)
 library(ggplot2)
 library(tidyverse)
-library(ggpubr)
 library(boot)
 library(gridExtra)
 library(car)
@@ -31,11 +26,7 @@ oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = 
 oscars_dataset2 <- oscars_dataset
 colnames(oscars_dataset2) <- c("num","film","o_year","producer","award","y_release","length","genres","main_genre","sub_genre","imdb_rating","imdb_votes","c_rating","directors","original_release_date","prod_company","tomato_rating","tomato_count","audience_rating","audience_count")
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
-
+Pregled naših podataka
 ```{r summary, echo=FALSE}
 summary(oscars_dataset)
 ```
@@ -394,9 +385,7 @@ summary(fit.audience)
 
 ```
 
-Očitujemo male vrijednosti R^2 čime dodatno potvrđujemo tvrdnju da starost filma slabo objašnjava ocjenu.
-Za IMDb, Tomato i Audience modele R^2 ostaje nizak (prema ispisu summary), pa je objašnjena varijanca mala.
-
+Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
 
 ```{r}
 
@@ -432,14 +421,15 @@ Moguče je na prvi pogled zaključiti kako godina izdanja ne utječe mnogo na oc
 shapiro.test(fit.imdb$residuals) 
 shapiro.test(fit.tomato$residuals) 
 shapiro.test(fit.audience$residuals)
-# p vrijednosti su < 0.05 za sve pa odbacujemo normalnost reziduala
+# p vrijednost je manje od o.o5 za sve a možemo zaključiti normalnost
 
 cor.test(oscars_dataset2$y_release, oscars_dataset2$imdb_rating,method = "pearson")
 cor.test(oscars_dataset2$y_release, oscars_dataset2$tomato_rating,method = "pearson")
 cor.test(oscars_dataset2$y_release, oscars_dataset2$audience_rating,method = "pearson")
 ```
 
-Odbacujemo hipotezu da su reziduali normalno distribuirani.
+Nemožemo odbaciti hipotezu da su reziduali normalno distribuirani.
+
 Pearson korelacijskim testom možemo vidjeti da su generalno slabo korelirani stime da imdb ima najveću korelaciju sa 0.33 što se može smatrati umjerenom korelacijom.
 Kako su sve tri umjerene no pozitivne postoji mogučnost da noviji filmovi imaju bolje ocijene.
 
