@@ -9,6 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(fig.process = function(x) x)
 ```
 
 ## Oscar Projekt
@@ -21,6 +22,7 @@ library(tidyverse)
 library(boot)
 library(gridExtra)
 library(car)
+library(tinytex)
 
 oscars_dataset <- read_delim("oscars_dataset.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 ```
@@ -214,6 +216,9 @@ if(premale_frekvencije2) {
 Na temelju originalnog testa H0 odbacujemo, što znači da prihvačamo H1, dok za test s grupiranim podacima Zadržavamo H0.
 
 #Jesu li neki žanrovi u prosjeku dulji od ostalih?
+
+Kako bismo utvrdili razlikuju li se žanrovi po trajanju, uspoređujemo srednje vrijednosti duljine filma između više grupa (žanrova). Prvo koristimo Boxplot za vizualizaciju distribucije i Shapiro-Wilk test za provjeru normalnosti podataka. Budući da su varijance među žanrovima često nejednake (heteroskedastičnost), standardna ANOVA možda nije prikladna. Zato koristimo Leveneov test za provjeru jednakosti varijanci. Ako varijance nisu jednake, koristimo Welchov ANOVA  ** koji je robusniji.
+
 Hipoteze:
 
 H0 - Duljina filma ne ovisi o žanru filma
@@ -333,8 +338,10 @@ U Welcheovom ANOVA testu p-value = 9.722e-05 što je znatno manje od 0.05 što z
 
 Promatrajući p adj stupac u Post-hoc Tuckey HSD testu vidimo na primjer da je komedija znatno kraća od ostalih žanrova (p adj < 0.05)
 
+Analiza sugerira da su drame i biografski filmovi u prosjeku dulji, dok su animirani filmovi i komedije značajno kraći, što ima smisla s obzirom na konvencije filmske industrije.
 
 # Kako su filmovi ocijenjeni s obzirom na njihovu starost?
+Ovdje ispitujemo povezanost između godine izlaska filma i njegove ocjene (IMDb, Tomato, Audience) koristeći linearnu regresiju. Cilj je vidjeti postoji li vremenski trend – jesu li stariji filmovi ili noviji filmovi bolje ocijenjen. Prikazujemo Scatter plot s regrsijskim pravcem te analiziramo Pearsonov koeficijent korelacije  i R^2 vrijednost modela kako bismo utvrdili snagu te veze.
 
 ```{r}
 mean.imdb.rating <- mean(oscars_dataset2$imdb_rating)
@@ -372,6 +379,7 @@ abline(fit.tomato, col = "green", lwd = 2)
 hist(fit.tomato$residuals) 
 #hist(rstandard(fit.tomato))
 summary(fit.tomato)
+cor(oscars_dataset2$y_release,oscars_dataset2$imdb_rating)
 
 fit.audience = lm(audience_rating~y_release,data=oscars_dataset2)
 plot(oscars_dataset2$y_release,oscars_dataset2$audience_rating,main = "Audience Rating -Release Year",
@@ -386,35 +394,8 @@ summary(fit.audience)
 
 
 ```
-Ovako oblikova rezidualni govore u korist 
+Ovako oblikova rezidualni govore u korist uvjerljivosti našeg linearnog modela
 Očitujemo malu vrijednost R^2 čime dalje potvrđujuemo tvrdnju da starost filma nema utjecaj na ocjenu.
-
-```{r}
-
-
-
-ggplot(imdb_ocjena_starost, aes(x = y_release, y = imdb_rating)) +
-  geom_point(alpha = 0.5) +  # alpha makes points semi-transparent to see density
-  geom_smooth(method = "lm", color = "blue", se = TRUE) + # "lm" = linear model
-  labs(title = "Relationship Between Movie Age and IMDb Rating",
-       x = "Release Year",
-       y = "IMDb Rating") +
-  theme_minimal()
-ggplot(oscars_dataset2, aes(x = y_release, y = tomato_rating)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm", color = "tomato", se = TRUE) + 
-  labs(title = "Relationship Between Movie Age and Tomatometer Rating",
-       x = "Release Year",
-       y = "Tomato Rating") +
-  theme_minimal()
-ggplot(oscars_dataset2, aes(x = y_release, y = audience_rating)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm", color = "green", se = TRUE) + 
-  labs(title = "Relationship Between Movie Age and Audience Rating",
-       x = "Release Year",
-       y = "Audience Rating") +
-  theme_minimal()
-```
 
 Moguče je na prvi pogled zaključiti kako godina izdanja ne utječe mnogo na ocjenu filma. Mali pozitivan nagib je upečaćen no ne smatramo ga toliko signifikantnim. Najveći nagib je u IMDB grafu.
 
@@ -435,12 +416,76 @@ Nemožemo odbaciti hipotezu da su reziduali normalno distribuirani.
 Pearson korelacijskim testom možemo vidjeti da su generalno slabo korelirani stime da imdb ima najveću korelaciju sa 0.33 što se može smatrati umjerenom korelacijom.
 Kako su sve tri umjerene no pozitivne postoji mogučnost da noviji filmovi imaju bolje ocijene.
 
+Kaka linearna regresija ne daje čvrst zaključak pokušamo LOESS metodom 
+
+<!---
+A LOESS (Locally Estimated Scatterplot Smoothing) curve is a non-parametric method used to fit a smooth line through a scatterplot, highlighting trends in data without assuming a specific, rigid structure
+-->
+
+```{r}
+
+
+
+ggplot(imdb_ocjena_starost, aes(x = y_release, y = imdb_rating)) +
+  geom_point(alpha = 0.5) +  # alpha makes points semi-transparent to see density
+  geom_smooth(method = "loess", color = "blue", se = TRUE) + # "lm" = linear model
+  labs(title = "Relationship Between Movie Age and IMDb Rating",
+       x = "Release Year",
+       y = "IMDb Rating") +
+  theme_minimal()
+ggplot(oscars_dataset2, aes(x = y_release, y = tomato_rating)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", color = "tomato", se = TRUE) + 
+  labs(title = "Relationship Between Movie Age and Tomatometer Rating",
+       x = "Release Year",
+       y = "Tomato Rating") +
+  theme_minimal()
+ggplot(oscars_dataset2, aes(x = y_release, y = audience_rating)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", color = "green", se = TRUE) + 
+  labs(title = "Relationship Between Movie Age and Audience Rating",
+       x = "Release Year",
+       y = "Audience Rating") +
+  theme_minimal()
+```
+Ovaj model nam govori više u korist pretpostavke da su stariji filmovi lošije ocijenjeni (pogotvo IMDb i Audience ratings).
+
+Vizualni i statistički rezultati (vrlo nizak R^2) pokazuju da godina izlaska filma nije dobar prediktor njegove kvalitete. Iako postoji blaga korelacija kod IMDb ocjena, ona nije dovoljno snažna da bismo zaključili kako starost filma presudno utječe na ocjenu. Reziduali su uglavnom normalno distribuirani, što validira model, ali sam nagib pravca je zanemariv.
 
 # Možemo li naslutiti kako je film ocijenjen pomoću drugih značajki?
 
+Kako bismo pronašli faktore koji utječu na ocjenu, prvo koristimo korelacijsku matricu za numeričke varijable (npr. trajanje, broj glasova). Zatim analiziramo kvalitativne značajke (poput statusa pobjednika Oscara) koristeći Wilcoxon test (jer podaci nisu normalno distribuirani) kako bismo vidjeli imaju li pobjednici značajno više ocjene. Na kraju, koristimo Bootstrap metodu za procjenu intervala pouzdanosti prosječne ocjene, što nam omogućuje da identificiramo "vrhunske" producente čiji filmovi statistički odskaču od prosjeka.
+
 Možemo iskoristiti nekoliko metoda kako bi vidjeli možemo li koristiti druge merike da bi mogli naslutiti ocjenu filma.
 
-Prvo krećemo sa numeričkom analizom.
+
+
+```{r interaction_plot, echo=FALSE}
+# Filtriramo samo top 8 najčešćih žanrova radi čitljivosti
+top_genres <- oscars_dataset2 %>%
+  count(main_genre) %>%
+  top_n(8, n) %>%
+  pull(main_genre)
+
+data_interaction <- oscars_dataset2 %>%
+  filter(main_genre %in% top_genres) %>%
+  filter(!is.na(imdb_rating))
+
+# Kreiranje Interaction Plota
+ggplot(data_interaction, aes(x = main_genre, y = imdb_rating, color = award, group = award)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun = mean, geom = "line", size = 1) +
+  labs(title = "Žanra i Nagrade na IMDb ocjenu",
+       subtitle = "Prosječna ocjena za Top 8 žanrova",
+       x = "Žanr",
+       y = "Prosječna IMDb ocjena",
+       color = "Status") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Vizualno odmah možemo naslutiti da pobjednici dobivaju bolje ocjene
+
+Numerička analiza
 ```{r}
 
 # Biramo samo numeričke stupce za nalizu
@@ -535,9 +580,11 @@ print(uspjesni_producenti)
 ```
 
 Zaključak: Na temelju numeričke korelacijske analize i kvalitativnih usporedbi ne pronalazimo jednu dominantnu značajku koja sama pouzdano objašnjava ocjenu filma. Ipak, status pobjednika i pojedini producenti/žanrovi signaliziraju viši prosjek ocjena, što sugerira da kombinacija kategorijskih značajki daje smisleniji uvid od samih numeričkih metrike.
-Zaključujemo da su ovih 7 producenata proizvode statistički bolje filmove po tome što imaju više filmova (znaći da imamo barem neku populaciju za proučiti) i prosjećna ocjena njihovih filmova je veća od gornje granice intervala pouzdanosti za alpha = 0.01
+Zaključujemo da su ovih 7 producenata proizvode statistički bolje filmove po tome što imaju više filmova (znaći da imamo barem neku populaciju za proučiti) i prosjećna ocjena njihovih filmova je veća od gornje granice intervala pouzdanosti za alpha = 0.01 što znači da su određnu producenti znalaka kvalitete
 
 #Možemo li pomoću dostupnih značajki pouzdano razlikovati pobjednike od ostalih?
+
+
 
 ```{r vizualna analiza pobjednika}
 p1 <- ggplot(oscars_dataset2, aes(x = award, y = tomato_rating, fill = award)) +
@@ -573,6 +620,7 @@ ggplot(genre_award_counts, aes(x = main_genre, y = prop, fill = award)) +
 
 ```
 
+Stacked bar prikaz žanrova daje kontekst za moguće razlike u sastavu nominacija i pobjeda po žanru. To pomaže povezati numeričke rezultate s kvalitativnim karakteristikama.
 ```{r numerička analiza pobjednika 1}
 # Logistička regresija
 logit_data <- oscars_dataset2 %>%
@@ -588,7 +636,13 @@ logit_model <- glm(
 
 summary(logit_model)
 
+logit_null <- glm(award_binary ~ 1, data = logit_data, family = binomial)
+mcfadden_r2 <- 1 - (logLik(logit_model) / logLik(logit_null))
+print(paste("McFadden pseudo-R^2:", round(as.numeric(mcfadden_r2), 3)))
+
 ```
+Logistički model pokazuje da su  duljina filma** i određeni žanrovi (Drama,Biografija,Avantura itd.) statistički značajni prediktori pobjede. Međutim, nizak McFadden pseudo-R^2 (0.072) sugerira da samo ove varijable nisu dovoljne za pouzdano predviđanje pobjednika. Iako pobjednici imaju statistički različite distribucije duljine i IMDb ocjena u odnosu na nominirane, preklapanje je preveliko da bi se pobjednik mogao deterministički odvojiti samo na temelju ovih podataka.
+
 
 ```{r numerička analiza pobjednika 2}
 
@@ -602,5 +656,6 @@ print(paste("P-vrijednost za IMDb:", test_imdb$p.value))
 print(paste("P-vrijednost za Duljinu:", test_len$p.value))
 print(paste("P-vrijednost za Tomato:", test_tomato$p.value))
 ```
+Wilcoxon testovi pokazuju da postoje razlike u raspodjelama IMDb ocjena i duljine između pobjednika i nominiranih (p-vrijednosti su vrlo male), dok Tomato ocjene ne pokazuju statistički značajnu razliku (p = 0.915). 
 
-Wilcoxon testovi govore postoje li razlike u raspodjelama između pobjednika i nominiranih za pojedine metrike; niske p-vrijednosti sugeriraju statistički značajne razlike u tim ocjenama ili duljini. Logistička regresija zatim procjenjuje doprinos svake varijable vjerojatnosti pobjede: pozitivni koeficijenti upućuju na veće šanse za pobjedu uz veće vrijednosti varijable, a značajnost (p-vrijednost) pokazuje koje su varijable najuvjerljiviji prediktori. Stacked bar prikaz žanrova daje kontekst za moguće razlike u sastavu nominacija i pobjeda po žanru, što pomaže povezati numeričke rezultate s kvalitativnim karakteristikama.
+Možemo detektirati obrasce i statističke razlike, ali model nema dovoljno snage da se pobjednici pouzdano razlikuju od nominiranih samo na temelju dostupnih značajki.
